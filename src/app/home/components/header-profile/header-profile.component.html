@@ -1,0 +1,22 @@
+<div class="flex lg:justify-between justify-center px-5 bg-blue-300">
+  <div class="flex items-center">
+    <img src="logo.png" class="hidden lg:flex w-2/12 h-auto justify-around items-center"/>
+  </div>
+
+  <div class="flex row-auto items-center py-5">
+    <button class=" rounded-2xl p-3 text-white border-white border-[0.1rem]" [matMenuTriggerFor]="menu">
+      <mat-icon class="text-2xl">person</mat-icon>
+      <span class=" text-lg ml-3 font-semibold">{{this.user()?.username}}</span>
+    </button>
+    <mat-menu #menu="matMenu">
+      <button mat-menu-item>
+        <mat-icon>settings</mat-icon>
+        <span>Ajuste</span>
+      </button>
+      <button mat-menu-item (click)="this.logout()" >
+        <mat-icon color="warn">logout</mat-icon>
+        <span class="text-red-800">Cerrar sesion</span>
+      </button>
+    </mat-menu>
+  </div>
+</div>

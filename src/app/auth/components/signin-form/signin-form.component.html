@@ -1,0 +1,51 @@
+<form [formGroup]="signInForm" (ngSubmit)="clickLogin()" class="bg-white rounded-md shadow-2xl p-5">
+  <h1 class="text-gray-800 font-bold text-2xl mb-1">DesignFlow</h1>
+  <p class="text-sm font-normal text-gray-600 mb-8">Bienvenido de nuevo</p>
+  <div class="flex items-center mb-4 py-2 px-3">
+    <mat-form-field class="w-full">
+      <mat-label>Email de usuario</mat-label>
+      <input formControlName="email" matInput class="pl-2 w-full outline-none border-none" type="email" name="email" placeholder="example@example.com" />
+      <mat-icon matSuffix>person</mat-icon>
+
+      <mat-error *ngIf="signInForm.get('email')?.hasError('minlength') && signInForm.get('email')?.touched">
+        Mínimo 3 caracteres
+      </mat-error>
+      <mat-error *ngIf="signInForm.get('email')?.hasError('required') && signInForm.get('email')?.touched">
+          Este campo es obligatorio
+      </mat-error>
+      <mat-error *ngIf="signInForm.get('email')?.hasError('email') && signInForm.get('email')?.touched">
+        Tiene que ser un email
+    </mat-error>
+    </mat-form-field>
+  </div>
+  <div class="flex items-center py-2 px-3">
+    <mat-form-field class="w-full">
+      <mat-label>Contraseña</mat-label>
+      <input formControlName="password" matInput class="pl-2 w-full outline-none border-none" [type]="is_pass()? 'text' : 'password'"  name="password" placeholder="********" />
+      <button matSuffix mat-icon-button type="button" aria-label="Clear" (click)="isViewPass()">
+        @if (!is_pass()) {
+          <mat-icon>visibility</mat-icon>
+        }@else{
+          <mat-icon>visibility_off</mat-icon>
+        }
+      </button>
+      <mat-error *ngIf="signInForm.get('password')?.hasError('required') && signInForm.get('password')?.touched">
+        Este campo es obligatorio
+      </mat-error>
+      <mat-error *ngIf="signInForm.get('password')?.hasError('minlength') && signInForm.get('password')?.touched">
+        Mínimo 3 caracteres
+      </mat-error>
+    </mat-form-field>
+  </div>
+  <div class="w-full px-5">
+    <button
+    [disabled]="this.isLoading()"
+    type="submit" class="w-full" mat-flat-button>
+        Inicie sesion
+    </button>
+  </div>
+  <div class="flex justify-between mt-4">
+    <a routerLink="/auth/sign-up" class="text-sm ml-2 hover:text-blue-400 cursor-pointer hover:-translate-y-1 duration-500 transition-all">No tienes cuenta?</a>
+  </div>
+
+</form>
