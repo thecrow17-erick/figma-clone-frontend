@@ -1,17 +1,15 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import {  Component } from '@angular/core';
 import { MaterialModule } from '../../../material';
-import { HeaderProfileComponent } from '../../components';
+import { HeaderProfileComponent, RoomsGridComponent } from '../../components';
 
 @Component({
   selector: 'app-home-page',
   standalone: true,
   imports: [
     MaterialModule,
-    HeaderProfileComponent
+    HeaderProfileComponent,
+    RoomsGridComponent
   ],
   templateUrl: "./home-page.component.html"
 })
-export class HomePageComponent {
-
-
-}
+export class HomePageComponent {}

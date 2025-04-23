@@ -2,11 +2,12 @@ import { Routes } from '@angular/router';
 // import { FigmaEditorComponent } from './canvas/components/figma-editor/figma-editor.component';
 import { authRoutes } from './auth/auth.routes';
 import { homeRoutes } from './home/home.routes';
+import { authGuard } from './auth/guard';
 
 export const routes: Routes = [
   {
     path: "",
-    redirectTo: "auth",
+    redirectTo: "home",
     pathMatch: "full"
   },
   {
@@ -15,6 +16,9 @@ export const routes: Routes = [
   },
   {
     path: "home",
-    children: homeRoutes
+    children: homeRoutes,
+    canActivate: [
+      authGuard
+    ]
   }
 ];

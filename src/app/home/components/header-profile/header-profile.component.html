@@ -4,16 +4,16 @@
   </div>
 
   <div class="flex row-auto items-center py-5">
-    <button class=" rounded-2xl p-3 text-white border-white border-[0.1rem]" [matMenuTriggerFor]="menu">
-      <mat-icon class="text-2xl">person</mat-icon>
-      <span class=" text-lg ml-3 font-semibold">{{this.user()?.username}}</span>
+    <button mat-raised-button color="primary" class=" rounded-2xl p-3 text-white border-white border-[0.1rem]" [matMenuTriggerFor]="menu">
+      <mat-icon >person</mat-icon>
+      {{this.user()?.username}}
     </button>
     <mat-menu #menu="matMenu">
       <button mat-menu-item>
         <mat-icon>settings</mat-icon>
         <span>Ajuste</span>
       </button>
-      <button mat-menu-item (click)="this.logout()" >
+      <button mat-menu-item color="warn" (click)="this.logout()" >
         <mat-icon color="warn">logout</mat-icon>
         <span class="text-red-800">Cerrar sesion</span>
       </button>
