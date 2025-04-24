@@ -1,82 +1,158 @@
-<div class="flex flex-col h-screen bg-gray-100">
+<header >
   <!-- Toolbar -->
-  <div class="bg-white shadow-md p-2 flex items-center justify-center">
-    <button mat-icon-button color="primary" matTooltip="Seleccionar" [ngClass]="{'selected': selectedTool === 'select'}"
-      (click)="selectTool('select')">
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-[120px_1fr] lg:gap-8">
+    <div class="rounded p-2 flex items-center justify-center">
+      <button mat-stroked-button>
+        <mat-icon>arrow_back</mat-icon> Volver
+      </button>
+    </div>
+    <div class="lg:shadow-md rounded p-2 flex items-center justify-center">
+      <button mat-icon-button color="primary" matTooltip="Mover" [ngClass]="{'selected': selectedTool === 'moved'}"
+        (click)="selectTool('moved')">
+        <mat-icon>swipe_left</mat-icon>
+      </button>
+      <button mat-icon-button color="primary" matTooltip="Seleccionar" [ngClass]="{'selected': selectedTool === 'select'}"
+        (click)="selectTool('select')">
         <mat-icon>near_me</mat-icon>
       </button>
-    <button mat-icon-button color="primary"  [matMenuTriggerFor]="menu">
-      <mat-icon>
-        @switch (this.selectedTool) {
-          @case ("rectangle") {
-            crop_5_4
+      <button mat-icon-button color="primary"  [matMenuTriggerFor]="menu">
+        <mat-icon>
+          @switch (this.getTool()) {
+            @case ("rectangle") {
+              crop_5_4
+            }
+            @case ("circle") {
+              radio_button_unchecked
+            }
+            @case ("line") {
+              show_chart
+            }
+            @default {
+              close
+            }
           }
-          @case ("circle") {
-            radio_button_unchecked
-          }
-          @case ("line") {
-            show_chart
-          }
-          @case ("triangle") {
-            signal_cellular_0_bar
-          }
-          @default {
-            close
-          }
-        }
-      </mat-icon>
-    </button>
-    <mat-menu #menu="matMenu">
-      <button mat-menu-item [ngClass]="{'selected': selectedTool === 'rectangle'}"
-      (click)="selectTool('rectangle')">
-        <mat-icon>crop_5_4</mat-icon>
-        <span>Rectangle</span>
+        </mat-icon>
       </button>
-      <button mat-menu-item [ngClass]="{'selected': selectedTool === 'circle'}"
-      (click)="selectTool('circle')">
-        <mat-icon>radio_button_unchecked</mat-icon>
-        <span>Circle</span>
+      <mat-menu #menu="matMenu">
+        <button mat-menu-item [ngClass]="{'selected': selectedTool === 'rectangle'}"
+        (click)="selectTool('rectangle')">
+          <mat-icon>crop_5_4</mat-icon>
+          <span>Rectangle</span>
+        </button>
+        <button mat-menu-item [ngClass]="{'selected': selectedTool === 'circle'}"
+        (click)="selectTool('circle')">
+          <mat-icon>radio_button_unchecked</mat-icon>
+          <span>Circle</span>
+        </button>
+        <button mat-menu-item [ngClass]="{'selected': selectedTool === 'line'}"
+        (click)="selectTool('line')">
+          <mat-icon>show_chart</mat-icon>
+          <span>Línea</span>
+        </button>
+      </mat-menu>
+
+      <button mat-icon-button [ngClass]="{'selected': selectedTool === 'text'}"
+      (click)="selectTool('text')" color="primary" class="mr-2" matTooltip="Textos">
+        <mat-icon>text_fields</mat-icon>
       </button>
-      <button mat-menu-item [ngClass]="{'selected': selectedTool === 'circle'}"
-      (click)="selectTool('circle')">
-        <mat-icon>show_chart</mat-icon>
-        <span>Línea</span>
+      <button mat-icon-button [ngClass]="{'selected': selectedTool === 'draw'}"
+      (click)="selectTool('draw')" color="primary" class="mr-2" matTooltip="Dibujo libre">
+        <mat-icon>
+          @switch (this.getTool()) {
+            @case ("draw") {
+              edit
+            }
+            @default {
+              edit_off
+            }
+          }
+
+        </mat-icon>
       </button>
 
-      <button mat-menu-item [ngClass]="{'selected': selectedTool === 'triangle'}"
-      (click)="selectTool('triangle')">
-        <mat-icon>signal_cellular_0_bar</mat-icon>
-        <span>triangulo</span>
+      <div class="flex flex-col items-center gap-2">
+        <!-- Input file oculto -->
+        <input
+          #fileInput
+          type="file"
+          id="file-upload"
+          accept="image/*"
+          class="sr-only"
+          (change)="this.handleFileChange($event)"
+        />
+        <!-- Botón estilizado con icono -->
+        <button
+          mat-icon-button
+          matTooltip="Imagenes"
+          color="primary"
+          aria-label="Subir imagen"
+          (click)="this.triggerFileInput()"
+        >
+          <mat-icon>image</mat-icon>
+        </button>
+
+      </div>
+
+      <button mat-icon-button color="warn" class="mr-2" (click)="onDeleteClick()" matTooltip="Eliminar objetos">
+        <mat-icon>delete</mat-icon>
       </button>
-    </mat-menu>
 
-    <button mat-icon-button color="primary" class="mr-2" matTooltip="Textos">
-      <mat-icon>text_fields</mat-icon>
-    </button>
-    <button mat-icon-button color="primary" class="mr-2" matTooltip="Dibujo libre">
-      <mat-icon>{{ isDrawingMode ? 'edit_off' : 'edit' }}</mat-icon>
-    </button>
-    <button mat-icon-button color="primary" class="mr-2" matTooltip="Imagenes">
-      <mat-icon>image</mat-icon>
-    </button>
+      <div class="flex items-center mr-4">
+        <label class="mr-2">Fill:</label>
+        <input type="color" [value]="this.getColor()" (change)="onColorChange($event)">
+      </div>
 
-    <button mat-icon-button color="warn" class="mr-2" (click)="onDeleteClick()" matTooltip="Eliminar objetos">
-      <mat-icon>delete</mat-icon>
-    </button>
-
-    <div class="flex items-center mr-4">
-      <label class="mr-2">Fill:</label>
-      <input type="color" [value]="currentColor" (change)="onColorChange($event)">
-    </div>
-
-    <div class="flex items-center mr-4">
-      <label class="mr-2">Stroke:</label>
-      <input type="color" [value]="currentColorStroke " (change)="onColorStrokeChange($event)">
+      <div class="flex items-center mr-4">
+        <label class="mr-2">Stroke Color:</label>
+        <input type="color" [value]="this.getColorStroke() " (change)="onColorStrokeChange($event)">
+      </div>
+      <div class="flex items-center mr-4">
+        <label class="mr-2">Stroke:</label>
+        <input
+            type="number"
+            min="1"
+            [value]="this.getStroke()"
+            class="h-8 w-12 rounded-sm border-blue-500 bg-blue-200 p-0 text-center text-xs text-gray-600 [-moz-appearance:_textfield] focus:outline-hidden [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none"
+            (change)="this.setStroke($event)"
+            />
+      </div>
+      <div class="flex items-center mr-4">
+        <label class="mr-2">Font size:</label>
+        <input
+            type="number"
+            min="1"
+            [value]="this.getFontSize()"
+            (change)="this.setFontSize($event)"
+            class="h-8 w-12 rounded-sm border-blue-500 bg-blue-200 p-0 text-center text-xs text-gray-600 [-moz-appearance:_textfield] focus:outline-hidden [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none"
+            />
+      </div>
     </div>
   </div>
-
   <!-- Canvas Area -->
-  <div class="flex-grow p-4 overflow-auto">
-    <canvas #fabricCanvas id="canvas"></canvas>
+</header>
+<main class="flex flex-1 overflow-hidden">
+  <!-- Área principal izquierda -->
+  <div class="flex-1 bg-white px-3 overflow-y-auto">
+    <div class="h-full border-2 rounded-md border-dashed border-gray-300 flex items-center justify-center">
+      <canvas #fabricCanvas id="canvas"></canvas>
+    </div>
   </div>
-</div>
+
+  <!-- Barra lateral derecha -->
+  <div class="w-64 bg-gray-200 border-l border-gray-300 flex flex-col">
+    <!-- Sección superior derecha -->
+    <div class="h-16 border-b border-gray-300 flex items-center justify-center">
+      <p class="text-gray-700">Sección superior</p>
+    </div>
+    <!-- Contenido derecho -->
+    <div class="flex-1 p-4 overflow-y-auto">
+      <div class="h-full border-2 border-dashed border-gray-400 rounded-lg flex items-center justify-center">
+        <p class="text-gray-500">Contenido derecho</p>
+      </div>
+    </div>
+    <!-- Sección inferior derecha -->
+    <div class="h-16 border-t border-gray-300 flex items-center justify-center">
+      <p class="text-gray-700">Sección inferior</p>
+    </div>
+  </div>
+</main>

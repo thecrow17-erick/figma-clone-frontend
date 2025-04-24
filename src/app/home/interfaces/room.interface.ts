@@ -1,8 +1,5 @@
 
 
-
-
-
 export interface IResponseAllRooms {
   total: number;
   rooms: IRooms[];

@@ -27,12 +27,24 @@ export class ShapeEditor {
   }
 
   public createLine(options: ICreateObject): fabric.Line{
-    return new fabric.Line([options.left,options.height,options.left+100, options.height+100],{
+    return new fabric.Line([options.left,options.height,options.left, options.height],{
       stroke: options.stroke,
       strokeWidth: options.strokeWidth,
-      fill: options.fill
+      fill: options.fill,
+      selectable: options.selectable
     });
   }
 
+  public createText(options: ICreateObject): fabric.Textbox {
+    return new fabric.Textbox("Ingrese", {
+      left: options.left,
+      top: options.top,
+      fontSize: options.width,
+      fill: options.fill,
+      stroke: options.stroke,
+      strokeWidth: options.strokeWidth,
+      selectable: options.selectable
+    })
+  }
 
 }

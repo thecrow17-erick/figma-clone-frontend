@@ -1,7 +1,7 @@
 import {  Injectable, signal } from '@angular/core';
 import * as fabric from 'fabric';
 import { BehaviorSubject } from 'rxjs';
-import { DrawingTool, IPointer } from '../types';
+import { DrawingTool, IPointer, IViewPortTransform } from '../types';
 import { ShapeEditor } from './shape-editor.service';
 
 
@@ -10,20 +10,38 @@ import { ShapeEditor } from './shape-editor.service';
 })
 export class FigmaEditorService {
 
+
+  //#region ATRIBUTOS
   private canvas!: fabric.Canvas;
   private activeObject: fabric.FabricObject | null = null;
   private selectObject: fabric.FabricObject[] = [];
 
-  private currentColor: string = '#3F51B5';
   private currentColorStroke: string = '#3F51B5';
   private isDrawing = signal<boolean>(false);
+  private isPanning = signal<boolean>(false);
   private startX = 0;
   private startY = 0;
+  //#endregion ATRIBUTOS
 
+  //#region BEHOVIER
+  private colorSubject = new BehaviorSubject<string>("#3F51B5");
+  public color$ = this.colorSubject.asObservable();
+
+  private colorStrokeSubject = new BehaviorSubject<string>("#3F51B5");
+  public colorStroke$ = this.colorStrokeSubject.asObservable();
 
   private selectedToolSubject = new BehaviorSubject<DrawingTool>("select");
   public selectedTool$ = this.selectedToolSubject.asObservable();
 
+  private strokeSubject = new BehaviorSubject<number>(1);
+  public stroke$ = this.strokeSubject.asObservable();
+
+  private fontSizeSubject = new BehaviorSubject<number>(24);
+  public fontSize$ = this.fontSizeSubject.asObservable();
+
+  //#endregion BEHOVIER
+
+  //#region INIT
   constructor(
     private readonly shapes : ShapeEditor
   ) {
@@ -32,7 +50,8 @@ export class FigmaEditorService {
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleSelection = this.handleSelection.bind(this);
     this.handleDeselection = this.handleDeselection.bind(this);
-    this.handleMouseUp = this.handleMouseUp.bind(this)
+    this.handleMouseUp = this.handleMouseUp.bind(this);
+    this.handleSmoothZoom = this.handleSmoothZoom.bind(this);
   }
 
   initCanvas(canvasEl: HTMLCanvasElement): void {
@@ -40,11 +59,14 @@ export class FigmaEditorService {
       width: 1550,
       height: 900,
       backgroundColor: '#dadada',
-      preserveObjectStacking: true,
     });
-
     this.setupEventListeners();
   }
+  public getCanvas(): fabric.Canvas {
+    return this.canvas;
+  }
+  //#endregion INIT
+
   //#region EVENTS
   private setupEventListeners(): void {
     this.canvas.on('selection:created', (e) => this.handleSelection(e.selected));
@@ -53,6 +75,7 @@ export class FigmaEditorService {
     this.canvas.on('mouse:move',(option)=> this.handleMouseMove(option));
     this.canvas.on('mouse:down',(option) => this.handleMouseDown(option));
     this.canvas.on("mouse:up", () => this.handleMouseUp());
+    this.canvas.on("mouse:wheel", (option) => this.handleSmoothZoom(option));
     // this.canvas.on('object:moving', (e) => {  //evento de que se mueve el objeto
     //   const movingObject = e.target;
     //   console.log({
@@ -69,7 +92,6 @@ export class FigmaEditorService {
     // });
   }
 
-
   private handleMouseDown(option: fabric.TPointerEventInfo<fabric.TPointerEvent>): void {
     if(!this.canvas) return;
     const pointer = this.canvas.getViewportPoint(option.e);
@@ -84,24 +106,39 @@ export class FigmaEditorService {
       case "circle":
         this.createCircleStart(pointer);
         break;
+      case "line":
+        this.createLineStart(pointer);
+        break;
+      case "text":
+        this.createTextStart(pointer);
+        break;
+      case "draw":
+        this.setupFreeDrawing();
+        break;
+      case "moved":
+        this.handleMovedDown();
+        break;
     }
   }
 
   private handleMouseUp(): void {
     if(this.activeObject){
-      this.activeObject.set('fill', this.currentColor);
+      this.activeObject.set('fill', this.getCurrentColor());
       this.activeObject.set('stroke', this.currentColorStroke)
       this.canvas.requestRenderAll();
     }
     this.isDrawing.set(false);
     this.activeObject = null;
+    if (this.selectedToolSubject.value === 'moved') {
+      this.handleMovedUp();
+    }
+    console.log(this.canvas._setObject);
   }
 
   private handleMouseMove(option: fabric.TPointerEventInfo<fabric.TPointerEvent>): void {
-    if(!this.canvas || !this.isDrawing()) return;
+    if(!this.canvas ) return;
     const pointer = this.canvas.getViewportPoint(option.e);
-    // console.log("type obj: ", this.selectedToolSubject.value);
-    if(this.activeObject){
+    if(this.activeObject || !this.isDrawing()){
       switch (this.selectedToolSubject.value){
         case "rectangle":
           this.updateRectangle(pointer);
@@ -109,18 +146,24 @@ export class FigmaEditorService {
         case "circle":
           this.updateCircle(pointer);
           break;
+        case "line":
+          this.updateLine(pointer);
+          break;
+      }
+    }
+    if(this.isPanning()){
+      if(this.selectedToolSubject.value === "moved"){
+        this.handleMovedMove(pointer);
       }
     }
   }
 
   private handleSelection(e:  fabric.FabricObject[]): void {
-    console.log(e);
     this.selectObject = e;
-    console.log(this.canvas.getObjects());
   }
 
   public handleDeselection(): void {
-    this.activeObject = null;
+    this.selectObject = [];
   }
 
 
@@ -133,16 +176,83 @@ export class FigmaEditorService {
     }
   }
 
-  handleKeyDown(event: KeyboardEvent): void {
+  public handleKeyDown(event: KeyboardEvent): void {
     if (event.key === 'Delete') {
       this.deleteSelectedObject();
     }
   }
 
+  handleMovedDown(): void {
+    this.isPanning.set(true);
+    this.canvas.defaultCursor = 'grabbing';
+  }
+
+  handleMovedMove(point: IPointer): void {
+    if (!this.isPanning() || !this.canvas) return;
+
+    const deltaX = point.x - this.startX;
+    const deltaY = point.y - this.startY;
+
+    // Mueve el viewport
+    this.canvas.relativePan(new fabric.Point(deltaX, deltaY));
+
+    this.startX = point.x;
+    this.startY = point.y ;
+  }
+
+  handleMovedUp(): void {
+    this.isPanning.set(false);
+    this.canvas.defaultCursor = 'grab'; // Restaura cursor
+  }
+
+  handleSmoothZoom(opt: fabric.TPointerEventInfo<WheelEvent>): void {
+    const delta = opt.e.deltaY;
+    let zoom = this.canvas.getZoom();
+
+    const zoomFactor = 0.05;
+
+    if (delta > 0) {
+      zoom *= 1 - zoomFactor;
+    }
+    else {
+      zoom *= 1 + zoomFactor;
+    }
+
+    const pointer = this.canvas.getViewportPoint(opt.e);
+
+    this.canvas.zoomToPoint(
+      new fabric.Point(pointer.x, pointer.y),
+      zoom
+    );
+
+    opt.e.preventDefault();
+    opt.e.stopPropagation();
+  }
+
+  private getViewportTransform(): IViewPortTransform {
+    if (!this.canvas?.viewportTransform) return { offsetX: 0, offsetY: 0, zoom: 1 };
+
+    return {
+      offsetX: this.canvas.viewportTransform[4],
+      offsetY: this.canvas.viewportTransform[5],
+      zoom: this.canvas.getZoom()
+    };
+  }
+
+  private getAdjustedPosition(point: IPointer): IPointer {
+    const transform = this.getViewportTransform();
+    return {
+      x: (point.x - transform.offsetX) / transform.zoom,
+      y: (point.y - transform.offsetY) / transform.zoom
+    };
+  }
+
+
   //#endregion EVENTS
 
+  //#region COLORS
   public updateActiveObjectColor(newColor: string): void {
-    this.currentColor = newColor;
+    this.colorSubject.next(newColor);
     if(this.selectObject.length){
       this.selectObject.forEach(obj => {
         obj.set('fill', newColor);
@@ -151,8 +261,12 @@ export class FigmaEditorService {
     }
   }
 
+  public getCurrentColor(): string {
+    return this.colorSubject.value;
+  }
+
   public updateActiveObjectColorStroke(newColor: string): void {
-    this.currentColorStroke = newColor;
+    this.colorStrokeSubject.next(newColor);
     if(this.selectObject.length){
       this.selectObject.forEach(obj => {
         obj.set('stroke', newColor);
@@ -161,48 +275,97 @@ export class FigmaEditorService {
     }
   }
 
-  getCurrentColor(): string {
-    return this.currentColor;
+  public getColorStroke(): string {
+    return this.colorStrokeSubject.value;
   }
 
-  getCanvas(): fabric.Canvas {
-    return this.canvas;
-  }
+  //#endregion COLORS
 
+  //#region SELECTEDTOOL
   public setTool(tool: DrawingTool): void {
     // Desactivar el modo de dibujo del canvas si no estamos en modo selección
     if (this.canvas) {
       if (tool === 'select') {
         this.canvas.isDrawingMode = false;
+        this.canvas.defaultCursor = 'default';
         this.canvas.selection = true;
         this.canvas.forEachObject(obj => {
           obj.selectable = true;
         });
       } else {
         this.canvas.isDrawingMode = false;
+        this.canvas.defaultCursor = 'default';
         this.canvas.selection = false;
         this.canvas.forEachObject(obj => {
           obj.selectable = false;
         });
+      }
+
+      if (tool === "moved") {
+        this.canvas.defaultCursor = 'grab'; // Cambia el cursor
+        this.canvas.selection = false;
       }
     }
 
     this.selectedToolSubject.next(tool);
   }
 
+  public getTool(): DrawingTool {
+    return this.selectedToolSubject.getValue();
+  }
+
+  //#endregion SELECTEDTOOL
+
+  //#region STROKE
+  public getStroke(): number {
+    return this.strokeSubject.value;
+  }
+
+  public setStroke(stroke: number): void {
+    this.strokeSubject.next(stroke);
+    if(this.selectObject.length){
+      this.selectObject.forEach(obj => {
+        obj.set('strokeWidth', stroke);
+      });
+      this.canvas.requestRenderAll();
+    }
+  }
+
+  //#endregion STROKE
+
+  //#region FONTSIZE
+  public getFontSize(): number {
+    return this.fontSizeSubject.value;
+  }
+
+  public setFontSize(fontSize: number): void {
+    this.fontSizeSubject.next(fontSize);
+    if(this.selectObject.length){
+      this.selectObject.forEach(obj => {
+        if(obj.type === "Textbox"){
+          console.log("es textbox");
+          obj.set("fontSize", fontSize)
+        }
+      });
+      this.canvas.requestRenderAll();
+    }
+  }
+  //#endregion FONTSIZE
+
   //#region METHODS RECT
   public createRectanguleStart(point: IPointer): void {
       if(!this.canvas ) return;
+      const adjustedPos = this.getAdjustedPosition(point);
 
       const rect = this.shapes.createRectangule({
-        left: point.x,
-        top: point.y,
+        left: adjustedPos.x,
+        top: adjustedPos.y,
         width: 1,
         height: 1,
         fill: this.getCurrentColor(),
         stroke: this.currentColorStroke,
-        strokeWidth: 5,
-        selectable: false,
+        strokeWidth: this.getStroke(),
+        selectable: true,
       });
 
       this.canvas.add(rect);
@@ -213,17 +376,17 @@ export class FigmaEditorService {
       if (!this.canvas || !this.activeObject) return;
 
       const rect = this.activeObject as fabric.Rect;
-
+      const adjustedPos = this.getAdjustedPosition(point);
       // Calcular las nuevas dimensiones
-      let width = Math.abs(point.x - this.startX!);
-      let height = Math.abs(point.y - this.startY!);
+      let width = Math.abs(adjustedPos.x - this.startX!);
+      let height = Math.abs(adjustedPos.y - this.startY!);
 
       // Establecer la posición correcta del rectángulo basado en la dirección del arrastre
-      if (point.x < this.startX) {
-        rect.set({ left: point.x });
+      if (adjustedPos.x < this.startX) {
+        rect.set({ left: adjustedPos.x });
       }
-      if (point.y < this.startY) {
-        rect.set({ top: point.y });
+      if (adjustedPos.y < this.startY) {
+        rect.set({ top: adjustedPos.y });
       }
       // Actualizar dimensiones
       rect.set({ width, height });
@@ -237,14 +400,14 @@ export class FigmaEditorService {
   //#region METHODS CIRCLE
   private createCircleStart(pointer: IPointer) {
     if(!this.canvas) return;
-
+    const adjustedPos = this.getAdjustedPosition(pointer);
     const circle = new fabric.Circle({
-      left: pointer.x,
-      top: pointer.y,
+      left: adjustedPos.x,
+      top: adjustedPos.y,
       radius: 1, // Radio inicial pequeño
-      fill: this.currentColor,
+      fill: this.getCurrentColor(),
       stroke: this.currentColorStroke,
-      strokeWidth: 1,
+      strokeWidth: this.getStroke(),
       selectable: true,
       originX: 'center',
       originY: 'center'
@@ -257,14 +420,14 @@ export class FigmaEditorService {
 
   private updateCircle(point: IPointer) {
     if(!this.canvas || !this.activeObject) return;
-
+    const adjustedPos = this.getAdjustedPosition(point);
 
     const circle = this.activeObject as fabric.Circle;
 
     // Calcular distancia desde el punto inicial (radio)
     const radius = Math.sqrt(
-        Math.pow(point.x - this.startX, 2) +
-        Math.pow(point.y - this.startY, 2)
+        Math.pow(adjustedPos.x - this.startX, 2) +
+        Math.pow(adjustedPos.y - this.startY, 2)
     );
 
     // Calcular posición del centro
@@ -286,24 +449,110 @@ export class FigmaEditorService {
   //#endregion METHODS CIRCLE
 
   //#region METHODS LINE
-  createLineStart(pointer: IPointer) {
+  createLineStart(point: IPointer) {
     if(!this.canvas) return;
-
-  }
-
-  updateLine(pointer: IPointer, options: {
-    startX: number;
-    startY: number;
-    canvas: fabric.Canvas;
-    activeObject: fabric.Line;
-  }) {
-    options.activeObject.set({
-      x2: pointer.x,
-      y2: pointer.y
+    const adjustedPos = this.getAdjustedPosition(point);
+    const line = this.shapes.createLine({
+      stroke: this.getColorStroke(),
+      strokeWidth: 3,
+      fill: this.getCurrentColor(),
+      left: adjustedPos.x,
+      top: adjustedPos.y,
+      height: 1,
+      width: 1,
+      selectable: true,
     });
 
-    options.canvas.requestRenderAll();
+    this.canvas.add(line);
+    this.activeObject = line;
+
+  }
+
+  updateLine(pointer: IPointer) {
+    if(!this.canvas || !this.activeObject) return;
+    const adjustedPos = this.getAdjustedPosition(pointer);
+    const line = this.activeObject as fabric.Line;
+    line.set("x1", this.startX);
+    line.set("y1", this.startY);
+
+    line.set("x2", adjustedPos.x);
+    line.set("y2", adjustedPos.y);
+
+    this.canvas.renderAll();
   }
   //#endregion METHODS LINE
+
+  //#region METHODS TEXT
+  public createTextStart(point: IPointer): void {
+    if(!this.canvas ) return;
+    const adjustedPos = this.getAdjustedPosition(point);
+    const text = this.shapes.createText({
+      left: adjustedPos.x,
+      top: adjustedPos.y,
+      width: this.getFontSize(),
+      fill: this.getCurrentColor(),
+      stroke: this.getColorStroke(),
+      strokeWidth: this.getStroke(),
+      height: 0,
+      selectable: true
+    });
+    this.canvas.add(text);
+  }
+
+  //#endregion METHODS TEXT
+
+  //#region METODS DRAW
+  private setupFreeDrawing(): void {
+    if (!this.canvas) return;
+
+    this.canvas.isDrawingMode = true;
+    this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
+
+    // Configuración del pincel
+    this.canvas.freeDrawingBrush.width = this.getStroke();
+    this.canvas.freeDrawingBrush.color = this.getCurrentColor();
+
+    if(this.canvas.upperCanvasEl){
+      this.canvas.upperCanvasEl.style.cursor = `url(public/pencil.png), auto`;
+    }
+  }
+  //#endregion METODS DRAW
+
+  //#region IMAGE
+  async addImageToCanvas(imageFile: File): Promise<void> {
+    if (!this.canvas) return;
+    const url = URL.createObjectURL(imageFile);
+
+    const imageElement = document.createElement("img");
+    imageElement.src = url;
+    imageElement.crossOrigin = "anonymous";
+    imageElement.onload = () => {
+      const imageWidth = imageElement.naturalWidth;
+      const imageHeight = imageElement.naturalHeight;
+      imageElement.width = imageWidth / 2;
+      imageElement.height = imageHeight / 2;
+      // Get canvas dimensions
+      const canvasWidth = this.canvas.width;
+      const canvasHeight = this.canvas.height;
+      const scale = Math.min(
+          canvasWidth / imageWidth,
+          canvasHeight / imageHeight
+      );
+      this.canvas.renderAll();
+      const fabricImg = new fabric.FabricImage(imageElement, {
+          left: 0,
+          top: 0,
+          scaleX: scale,
+          scaleY: scale,
+          selectable: true,
+          hoverCursor: "default",
+      });
+      this.canvas.add(fabricImg);
+      this.canvas.renderAll();
+    };
+
+  }
+  //#endregion IMAGE
+
 
 }

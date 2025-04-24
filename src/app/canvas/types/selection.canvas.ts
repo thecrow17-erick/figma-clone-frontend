@@ -1,7 +1,7 @@
 
 import * as fabric from 'fabric';
 
-export type DrawingTool = 'select' | 'rectangle' | 'circle' | 'line' | 'text' | 'triangle';
+export type DrawingTool = 'select' | 'rectangle' | 'circle' | 'line' | 'text' | 'draw' | 'moved';
 
 
 
@@ -20,6 +20,13 @@ export interface IPointer {
   x: number;
   y: number;
 }
+
+export interface IViewPortTransform{
+  offsetX: number;
+  offsetY: number;
+  zoom: number;
+}
+
 
 export interface IOptionUpdRect {
   activeObject?: fabric.FabricObject | null;

@@ -3,6 +3,7 @@ import { Routes } from '@angular/router';
 import { authRoutes } from './auth/auth.routes';
 import { homeRoutes } from './home/home.routes';
 import { authGuard } from './auth/guard';
+import { FigmaEditorComponent } from './canvas/components/figma-editor/figma-editor.component';
 
 export const routes: Routes = [
   {
@@ -20,5 +21,9 @@ export const routes: Routes = [
     canActivate: [
       authGuard
     ]
+  },
+  {
+    path: "canva",
+    component: FigmaEditorComponent
   }
 ];
