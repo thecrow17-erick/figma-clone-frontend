@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { MaterialModule } from '../../../material';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -24,7 +24,8 @@ export class CreateRoomComponent implements OnInit{
   private localStorage = inject(LocalstorageService);
   private roomService = inject(RoomService);
   private router = inject(Router);
-  public file: File | null = null;
+  public isLoading = signal<boolean>(false);
+  public file: File | undefined = undefined;
 
   ngOnInit(): void {
     this.setForm();
@@ -51,6 +52,7 @@ export class CreateRoomComponent implements OnInit{
   public onSubmitCreateRoom(): void {
     if(!this.roomForm.valid) return;
 
+    this.isLoading.set(true);
     const body: IBodyCreateRoom = {
       name: this.roomForm.value.name!,
       description: this.roomForm.value.description!
@@ -65,23 +67,23 @@ export class CreateRoomComponent implements OnInit{
       return;
     }
 
-    this.roomService.createRoom(body,token).subscribe(
+    this.roomService.createRoom(body,token,this.file).subscribe(
       {
         next: (res) => {
           console.log(res);
+          this.isLoading.set(false);
+          this.dialogRef.close();
         },
         error: (err) => {
-          console.log(err);
+          this.isLoading.set(false);
           alert(JSON.stringify(err));
         }
       }
     );
-    this.dialogRef.close();
   }
 
   handleFile(e: Event): void {
     const input = e.target as HTMLInputElement;
-    console.log("archivo: ",input.files![0]);
     this.file = input.files![0];
   }
 }

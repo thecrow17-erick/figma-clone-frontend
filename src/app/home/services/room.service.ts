@@ -25,10 +25,21 @@ export class RoomService {
     )
   }
 
-  public createRoom(body: IBodyCreateRoom, token: string): Observable<IApiResponse<IResponseCreateRoom>>{
+  public createRoom(body: IBodyCreateRoom,token: string,file?: File): Observable<IApiResponse<IResponseCreateRoom>>{
+
+    console.log(body,file);
+
     const headers = new HttpHeaders()
       .set("auth-token", token);
-    return this.http.post<IApiResponse<IResponseCreateRoom>>(this.roomUrl, body,{
+
+    const formData = new FormData();
+
+    formData.append("name", body.name);
+    formData.append("description", body.description);
+    if(file) formData.append("sketch", file)
+
+
+    return this.http.post<IApiResponse<IResponseCreateRoom>>(this.roomUrl, formData,{
       headers
     })
       .pipe(
