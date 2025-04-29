@@ -1,0 +1,25 @@
+<div  class="p-4 flex items-center justify-between hover:bg-gray-50">
+  <div class="flex items-center">
+    <div>
+      <h3 class="text-lg font-medium text-gray-900">{{user.username}}</h3>
+      <p class="text-sm text-gray-500">{{user.email}}</p>
+    </div>
+  </div>
+  <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+      <select
+        [(ngModel)]="this.role"
+        [value]="this.role"
+        class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md focus:ring-blue-500 focus:border-blue-500 block p-2"
+      >
+        <option *ngFor="let role of this.roles()" [value]="role.value" >{{role.desc}}</option>
+      </select>
+
+      <button
+        mat-flat-button
+        (click)="this.invitateClick()"
+        [disabled]="this.isLoading()"
+      >
+        Invitar
+      </button>
+  </div>
+</div>

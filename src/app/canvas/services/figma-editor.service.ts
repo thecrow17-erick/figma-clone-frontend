@@ -1,8 +1,9 @@
-import {  Injectable, signal } from '@angular/core';
+import {  inject, Injectable, signal } from '@angular/core';
 import * as fabric from 'fabric';
 import { BehaviorSubject } from 'rxjs';
 import { DrawingTool, IPointer, IViewPortTransform } from '../types';
-import { ShapeEditor } from './shape-editor.service';
+import { CanvasSocketService, ShapeEditor } from './';
+import {v4 as uuid} from "uuid"
 
 
 @Injectable({
@@ -10,6 +11,9 @@ import { ShapeEditor } from './shape-editor.service';
 })
 export class FigmaEditorService {
 
+  //#region SOCKETS
+  private socketService = inject(CanvasSocketService);
+  //#endregion SOCKETS
 
   //#region ATRIBUTOS
   private canvas!: fabric.Canvas;
@@ -41,6 +45,273 @@ export class FigmaEditorService {
 
   //#endregion BEHOVIER
 
+  //#region EVENTOS SOCKETS
+  // Método para unirse a una sala
+  public joinRoom(roomCode: string): void {
+    this.socketService.joinRoom(roomCode);
+
+    // Escuchar el estado inicial del canvas
+    this.socketService.onCanvasState((data) => {
+      if (data) {
+        this.loadCanvasFromJSON(data);
+      }
+    });
+  }
+  private loadCanvasFromJSON(json: any): void {
+    if (!this.canvas) return;
+    this.canvas.loadFromJSON(json, () => {
+      this.canvas.renderAll();
+    });
+  }
+
+  private sendCanvasUpdate(): void {
+    if (!this.canvas) return;
+    const json = this.canvas.toJSON();
+    this.socketService.sendCanvasUpdate(json);
+  }
+  private handleUpdateCanvas(data: string): void {
+    if (!this.canvas || !data) return;
+
+  try {
+    // Parse the JSON data received from the server
+    const serverObjects = JSON.parse(data) as {version: string, objects: any[]};
+    if (!serverObjects.objects || !Array.isArray(serverObjects.objects)) return;
+    // Get current canvas objects
+    const canvasObjects = this.canvas.getObjects();
+    const serverObjectsIds = serverObjects.objects.map((obj: any) => obj.id || '');
+
+    // CASE 1: Remove objects that exist in canvas but not in server
+    const objectsToRemove = canvasObjects.filter(obj =>
+      obj.id && !serverObjectsIds.includes(obj.id)
+    );
+    objectsToRemove.forEach(obj => this.canvas.remove(obj));
+
+    // CASE 2: Add or update objects from server
+    serverObjects.objects.forEach((serverObj: any) => {
+      if (!serverObj.id) return; // Skip objects without ID
+
+      // Check if object exists in canvas
+      const existingObj = canvasObjects.find(obj => obj.id === serverObj.id);
+      if (existingObj) {
+        // CASE 2a: Update existing object if properties differ
+        // Compare essential properties to see if an update is needed
+        const needUpd = this.objectNeedsUpdate(existingObj, serverObj);
+        if (needUpd) {
+          // Update object properties
+          this.updateObjectProperties(existingObj, serverObj);
+        }
+      } else {
+        // CASE 2b: Add new object from server
+        console.log("crea linea");
+        this.addObjectFromServer(serverObj);
+      }
+    });
+
+    // Render all changes
+    this.canvas.renderAll();
+  } catch (error) {
+    console.error('Error updating canvas from server data:', error);
+  }
+}
+
+// Helper method to determine if an object needs to be updated
+private objectNeedsUpdate(existingObj: fabric.FabricObject, serverObj: any): boolean {
+  // Compare essential properties
+  const propsToCompare = ['left', 'top', 'width', 'height', 'scaleX', 'scaleY', 'angle', 'fill', 'stroke'];
+
+  for (const prop of propsToCompare) {
+    if (existingObj[prop as keyof fabric.FabricObject] !== serverObj[prop]) {
+      return true;
+    }
+  }
+
+  // For type-specific properties (e.g., radius for circles, text for textboxes)
+  if (existingObj.type === 'circle') {
+    // Casting al tipo correcto antes de acceder a radius
+    const circleObj = existingObj as fabric.Circle;
+    if (circleObj.radius !== serverObj.radius) {
+      return true;
+    }
+  }
+
+  if(existingObj.type === 'line'){
+    const lineObj = existingObj as fabric.Line;
+    if(
+      lineObj.x1 !== serverObj.x1 ||
+      lineObj.x2 !== serverObj.x2 ||
+      lineObj.y1 !== serverObj.y1 ||
+      lineObj.y2 !== serverObj.y2
+    ) return true;
+  }
+
+
+  if (existingObj.type === 'textbox' && (existingObj as fabric.Textbox).text !== serverObj.text) {
+    return true;
+  }
+
+  return false;
+}
+
+// Helper method to update object properties
+private updateObjectProperties(existingObj: fabric.FabricObject, serverObj: any): void {
+  // Update basic properties
+  existingObj.set({
+    left: serverObj.left,
+    top: serverObj.top,
+    scaleX: serverObj.scaleX,
+    scaleY: serverObj.scaleY,
+    angle: serverObj.angle,
+    fill: serverObj.fill,
+    stroke: serverObj.stroke,
+    strokeWidth: serverObj.strokeWidth
+  });
+  // Update type-specific properties
+  if (existingObj.type === 'rect' && serverObj.type === 'Rect') {
+    (existingObj as fabric.Rect).set({
+      width: serverObj.width,
+      height: serverObj.height
+    });
+  } else if (existingObj.type === 'circle' && serverObj.type === 'Circle') {
+    (existingObj as fabric.Circle).set({
+      radius: serverObj.radius
+    });
+  } else if (existingObj.type === 'line' && serverObj.type === 'Line') {
+    const adjustedPos = this.getAdjustedPosition({x: serverObj.x2,y: serverObj.y2});
+    (existingObj as fabric.Line).set({
+      x1: serverObj.x1,
+      y1: serverObj.y1,
+      x2: adjustedPos.x,
+      y2: adjustedPos.y
+    });
+  } else if (existingObj.type === 'textbox' && serverObj.type === 'Textbox') {
+    (existingObj as fabric.Textbox).set({
+      text: serverObj.text,
+      fontSize: serverObj.fontSize
+    });
+  } else if (existingObj.type === 'path' && serverObj.type === 'Path') {
+    (existingObj as fabric.Path).set({
+      path: serverObj.path
+    });
+  } else if (existingObj.type === 'image' && serverObj.type === 'image') {
+    // For images we might need special handling
+    (existingObj as fabric.FabricImage).setSrc(serverObj.src, {});
+    this.canvas.renderAll();
+  }
+}
+
+// Helper method to add a new object from server data
+private addObjectFromServer(serverObj: any): void {
+  // Based on the object type, create the appropriate Fabric.js object
+  switch (serverObj.type) {
+    case 'Rect':
+      const rect = new fabric.Rect({
+        left: serverObj.left,
+        top: serverObj.top,
+        width: serverObj.width,
+        height: serverObj.height,
+        fill: serverObj.fill,
+        stroke: serverObj.stroke,
+        strokeWidth: serverObj.strokeWidth,
+        selectable: true,
+        angle: serverObj.angle,
+        scaleX: serverObj.scaleX,
+        scaleY: serverObj.scaleY
+      });
+      rect.id = serverObj.id; // Assign the same ID
+      this.canvas.add(rect);
+      break;
+
+    case 'Circle':
+      const circle = new fabric.Circle({
+        left: serverObj.left,
+        top: serverObj.top,
+        radius: serverObj.radius,
+        fill: serverObj.fill,
+        stroke: serverObj.stroke,
+        strokeWidth: serverObj.strokeWidth,
+        selectable: true,
+        originX: 'center',
+        originY: 'center',
+        angle: serverObj.angle,
+        scaleX: serverObj.scaleX,
+        scaleY: serverObj.scaleY
+      });
+      circle.id = serverObj.id;
+      this.canvas.add(circle);
+      break;
+
+    case 'Line':
+      const adjustedPos = this.getAdjustedPosition({x: serverObj.x2,y: serverObj.y2});
+      const line = new fabric.Line([serverObj.x1,serverObj.y1,serverObj.x1 + 100,serverObj.x1 + 100],{
+        left: serverObj.left,
+        top: serverObj.top,
+        stroke: serverObj.stroke,
+        strokeWidth: serverObj.strokeWidth,
+        fill: serverObj.fill,
+        selectable: true,
+      });
+      line.id = serverObj.id;
+      this.canvas.add(line);
+      break;
+
+    case 'Textbox':
+      const text = new fabric.Textbox(serverObj.text,{
+        left: serverObj.left,
+        top: serverObj.top,
+        fontSize: serverObj.fontSize,
+        fill: serverObj.fill,
+        stroke: serverObj.stroke,
+        strokeWidth: serverObj.strokeWidth,
+        selectable: true,
+        angle: serverObj.angle,
+        scaleX: serverObj.scaleX,
+        scaleY: serverObj.scaleY
+      });
+      text.id = serverObj.id;
+      this.canvas.add(text);
+      break;
+
+    case 'Path':
+      const path = new fabric.Path(serverObj.path, {
+        left: serverObj.left,
+        top: serverObj.top,
+        fill: serverObj.fill,
+        stroke: serverObj.stroke,
+        strokeWidth: serverObj.strokeWidth,
+        selectable: true,
+        angle: serverObj.angle,
+        scaleX: serverObj.scaleX,
+        scaleY: serverObj.scaleY,
+        id: serverObj.id
+      });
+      this.canvas.add(path);
+      break;
+
+    case 'image':
+      // For images, we need to create an image element and then a Fabric image
+      const img = document.createElement('img');
+      img.crossOrigin = 'anonymous';
+      img.src = serverObj.src;
+
+      img.onload = () => {
+        const fabricImg = new fabric.FabricImage(img, {
+          left: serverObj.left,
+          top: serverObj.top,
+          scaleX: serverObj.scaleX,
+          scaleY: serverObj.scaleY,
+          angle: serverObj.angle,
+          selectable: true
+        });
+        fabricImg.id = serverObj.id;
+        this.canvas.add(fabricImg);
+        this.canvas.renderAll();
+      };
+      break;
+    }
+  }
+
+  //#endregion EVENTOS SOCKETS
+
   //#region INIT
   constructor(
     private readonly shapes : ShapeEditor
@@ -52,16 +323,23 @@ export class FigmaEditorService {
     this.handleDeselection = this.handleDeselection.bind(this);
     this.handleMouseUp = this.handleMouseUp.bind(this);
     this.handleSmoothZoom = this.handleSmoothZoom.bind(this);
+    this.handleMoving = this.handleMoving.bind(this);
+    this.handleTextChanged = this.handleTextChanged.bind(this);
   }
 
   initCanvas(canvasEl: HTMLCanvasElement): void {
     this.canvas = new fabric.Canvas(canvasEl, {
       width: 1550,
       height: 900,
-      backgroundColor: '#dadada',
     });
-    this.setupEventListeners();
+    this.setupEventListeners()
+    this.socketService.onCanvasUpdate((data) => {
+      this.handleUpdateCanvas(data);
+    });
   }
+
+
+
   public getCanvas(): fabric.Canvas {
     return this.canvas;
   }
@@ -76,22 +354,28 @@ export class FigmaEditorService {
     this.canvas.on('mouse:down',(option) => this.handleMouseDown(option));
     this.canvas.on("mouse:up", () => this.handleMouseUp());
     this.canvas.on("mouse:wheel", (option) => this.handleSmoothZoom(option));
-    // this.canvas.on('object:moving', (e) => {  //evento de que se mueve el objeto
-    //   const movingObject = e.target;
-    //   console.log({
-    //     left: movingObject.left,       // Posición X
-    //     top: movingObject.top,         // Posición Y
-    //     width: movingObject.width,     // Ancho
-    //     height: movingObject.height,   // Alto
-    //     angle: movingObject.angle,    // Rotación
-    //     fill: movingObject.fill,       // Color de relleno
-    //     stroke: movingObject.stroke,   // Color del borde
-    //     scaleX: movingObject.scaleX,  // Escala horizontal
-    //     scaleY: movingObject.scaleY   // Escala vertical
-    //   });
-    // });
+    this.canvas.on('object:moving', (_) =>this.handleMoving());
+    // this.canvas.on("text:editing:entered", (e)=> console.log(e))
+    this.canvas.on("text:changed", (opt) => this.handleTextChanged(opt.target))
   }
 
+  private handleTextChanged(target: fabric.IText): void {
+    const getObjects = this.canvas.getObjects();
+
+    const textBox = getObjects.find(obj => obj.id === target.id) as fabric.Textbox;
+
+    if(textBox){
+      textBox.set({
+        text: target.text
+      });
+      this.canvas.renderAll();
+    }
+    this.sendCanvasUpdate();
+  }
+
+  private handleMoving(): void {
+    this.sendCanvasUpdate();
+  }
   private handleMouseDown(option: fabric.TPointerEventInfo<fabric.TPointerEvent>): void {
     if(!this.canvas) return;
     const pointer = this.canvas.getViewportPoint(option.e);
@@ -119,20 +403,28 @@ export class FigmaEditorService {
         this.handleMovedDown();
         break;
     }
+    this.sendCanvasUpdate();
   }
 
   private handleMouseUp(): void {
-    if(this.activeObject){
-      this.activeObject.set('fill', this.getCurrentColor());
-      this.activeObject.set('stroke', this.currentColorStroke)
+    // if(this.isDrawing() && this.activeObject){
+    //   this.canvas.add(this.activeObject);
+    // }
+    if(this.selectObject.length){
+      this.selectObject.map (obj => {
+        if(obj.type === "Rect" || obj.type === "Circle" || obj.type === "Line")
+          obj.set('fill', this.getCurrentColor());
+          obj.set('stroke', this.currentColorStroke)
+      })
       this.canvas.requestRenderAll();
     }
+
     this.isDrawing.set(false);
     this.activeObject = null;
     if (this.selectedToolSubject.value === 'moved') {
       this.handleMovedUp();
     }
-    console.log(this.canvas._setObject);
+    this.sendCanvasUpdate();
   }
 
   private handleMouseMove(option: fabric.TPointerEventInfo<fabric.TPointerEvent>): void {
@@ -160,6 +452,7 @@ export class FigmaEditorService {
 
   private handleSelection(e:  fabric.FabricObject[]): void {
     this.selectObject = e;
+
   }
 
   public handleDeselection(): void {
@@ -173,6 +466,7 @@ export class FigmaEditorService {
       activeObject.map ( m => this.canvas.remove(m))
       this.canvas.discardActiveObject();
       this.canvas.requestRenderAll();
+      this.sendCanvasUpdate();
     }
   }
 
@@ -185,6 +479,7 @@ export class FigmaEditorService {
   handleMovedDown(): void {
     this.isPanning.set(true);
     this.canvas.defaultCursor = 'grabbing';
+    this.sendCanvasUpdate();
   }
 
   handleMovedMove(point: IPointer): void {
@@ -197,12 +492,14 @@ export class FigmaEditorService {
     this.canvas.relativePan(new fabric.Point(deltaX, deltaY));
 
     this.startX = point.x;
-    this.startY = point.y ;
+    this.startY = point.y;
+
   }
 
   handleMovedUp(): void {
     this.isPanning.set(false);
     this.canvas.defaultCursor = 'grab'; // Restaura cursor
+
   }
 
   handleSmoothZoom(opt: fabric.TPointerEventInfo<WheelEvent>): void {
@@ -368,8 +665,8 @@ export class FigmaEditorService {
         selectable: true,
       });
 
-      this.canvas.add(rect);
       this.activeObject = rect;
+      this.canvas.add( rect);
     }
 
     public updateRectangle(point: IPointer): void {
@@ -393,6 +690,7 @@ export class FigmaEditorService {
 
       // Actualizar el canvas
       this.canvas.renderAll();
+      this.sendCanvasUpdate();
     }
 
   //#endregion
@@ -412,9 +710,9 @@ export class FigmaEditorService {
       originX: 'center',
       originY: 'center'
     });
-
-    this.canvas.add(circle);
+    circle.id = uuid();
     this.activeObject = circle;
+    this.canvas.add(circle);
     return circle;
   }
 
@@ -445,6 +743,7 @@ export class FigmaEditorService {
 
     // Forzar actualización del canvas
     this.canvas.renderAll();
+    this.sendCanvasUpdate();
   }
   //#endregion METHODS CIRCLE
 
@@ -463,9 +762,8 @@ export class FigmaEditorService {
       selectable: true,
     });
 
-    this.canvas.add(line);
     this.activeObject = line;
-
+    this.canvas.add(line);
   }
 
   updateLine(pointer: IPointer) {
@@ -479,6 +777,7 @@ export class FigmaEditorService {
     line.set("y2", adjustedPos.y);
 
     this.canvas.renderAll();
+    this.sendCanvasUpdate();
   }
   //#endregion METHODS LINE
 
@@ -506,15 +805,18 @@ export class FigmaEditorService {
     if (!this.canvas) return;
 
     this.canvas.isDrawingMode = true;
+    // const pencilBrush = new fabric.PencilBrush(this.canvas);
     this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
-
     // Configuración del pincel
     this.canvas.freeDrawingBrush.width = this.getStroke();
+
     this.canvas.freeDrawingBrush.color = this.getCurrentColor();
 
-    if(this.canvas.upperCanvasEl){
-      this.canvas.upperCanvasEl.style.cursor = `url(public/pencil.png), auto`;
-    }
+    this.canvas.on('path:created', (event) => {
+      const path = event.path;
+      path.set({ id: uuid() }); // Asigna un UUID único al path dibujado
+       // Para debug
+    });
   }
   //#endregion METODS DRAW
 
@@ -546,8 +848,10 @@ export class FigmaEditorService {
           scaleY: scale,
           selectable: true,
           hoverCursor: "default",
+          id: uuid(),
       });
       this.canvas.add(fabricImg);
+      console.log(fabricImg);
       this.canvas.renderAll();
     };
 

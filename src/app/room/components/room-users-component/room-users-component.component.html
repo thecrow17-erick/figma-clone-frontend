@@ -1,0 +1,53 @@
+<mat-card>
+  <div class="bg-blue-500 px-6 py-4">
+    <h2 class="text-2xl font-bold text-white">Usuarios en la Sala</h2>
+  </div>
+
+  <!-- Desktop View -->
+  <div class="hidden md:block">
+    <table mat-table [dataSource]="dataSource()" class="mat-elevation-z8">
+
+      <!--- Note that these columns can be defined in any order.
+            The actual rendered columns are set as a property on the row definition" -->
+
+      <!-- Position Column -->
+      <ng-container matColumnDef="NOMBRE">
+        <th mat-header-cell *matHeaderCellDef> NOMBRE </th>
+        <td mat-cell *matCellDef="let element"> {{element.user.username}} </td>
+      </ng-container>
+
+      <!-- Name Column -->
+      <ng-container matColumnDef="ROL">
+        <th mat-header-cell *matHeaderCellDef> ROL </th>
+        <td mat-cell *matCellDef="let element">
+          {{this.isRoleConvert(element.role)}}
+
+        </td>
+      </ng-container>
+
+      <!-- Weight Column -->
+      <ng-container matColumnDef="EMAIL">
+        <th mat-header-cell *matHeaderCellDef> EMAIL </th>
+        <td mat-cell *matCellDef="let element"> {{element.user.email}} </td>
+      </ng-container>
+
+      <!-- Symbol Column -->
+      <ng-container matColumnDef="FECHA INGRESO">
+        <th mat-header-cell *matHeaderCellDef> FECHA INGRESO </th>
+        <td mat-cell *matCellDef="let element"> {{this.formatDate(element.createdAt)}} </td>
+      </ng-container>
+
+      <ng-container matColumnDef="ELIMINAR">
+        <th mat-header-cell *matHeaderCellDef> ELIMINAR </th>
+        <td mat-cell *matCellDef="let element">
+          <button (click)="this.removedUserEvent.emit(element.user_id)" mat-icon-button color="warn" matTooltip="Remover de la sala">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  </div>
+</mat-card>

@@ -1,0 +1,56 @@
+<div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 flex items-center">
+  <div>
+    <h2 class="text-lg font-semibold text-blue-800">Sala: {{this.data.room.code}}</h2>
+    <p class="text-sm text-blue-600">Busca usuarios para invitar a tu sala</p>
+  </div>
+</div>
+<mat-dialog-content>
+  <main class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+      <div class="relative mb-2">
+        <div class="flex">
+          <div class="relative flex-grow">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <mat-icon color="withe">search</mat-icon>
+            </div>
+            <input
+              type="text"
+              [(ngModel)]="search"
+              [value]="search"
+              class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Buscar por correo electrónico"
+            />
+          </div>
+          <button
+            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-r-md transition-colors"
+            (click)="searchUsers()"
+          >
+            Buscar
+          </button>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+        <div class="bg-blue-500 px-6 py-3">
+          <p class="text-xl font-bold text-white">Resultados</p>
+        </div>
+
+          <div *ngIf="this.isLoading()" class="p-8 text-center">
+            <div class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-500 border-r-transparent"></div>
+            <p class="mt-2 text-gray-600">Buscando usuarios...</p>
+          </div>
+
+          <div *ngIf="this.filteredUsers().length === 0" class="p-8 text-center">
+            <p class="text-gray-600">No se encontraron usuarios con ese criterio de búsqueda.</p>
+          </div>
+          <div *ngIf="!this.isLoading()" class="divide-y divide-gray-200">
+              <app-invitate-user-card
+                *ngFor="let user of this.filteredUsers()"
+                [user]="user"
+                [roomId]="+this.data.room.id"
+                (invitate)="this.invitateUser($event)"
+              />
+          </div>
+      </div>
+    </div>
+  </main>
+</mat-dialog-content>

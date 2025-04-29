@@ -2,7 +2,7 @@
   <!-- Toolbar -->
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-[120px_1fr] lg:gap-8">
     <div class="rounded p-2 flex items-center justify-center">
-      <button mat-stroked-button>
+      <button (click)="this.goToHome()" mat-stroked-button>
         <mat-icon>arrow_back</mat-icon> Volver
       </button>
     </div>
@@ -134,7 +134,7 @@
   <!-- Área principal izquierda -->
   <div class="flex-1 bg-white px-3 overflow-y-auto">
     <div class="h-full border-2 rounded-md border-dashed border-gray-300 flex items-center justify-center">
-      <canvas #fabricCanvas id="canvas"></canvas>
+      <canvas #fabricCanvas class="block w-full h-full" id="canvas"></canvas>
     </div>
   </div>
 
@@ -142,17 +142,27 @@
   <div class="w-64 bg-gray-200 border-l border-gray-300 flex flex-col">
     <!-- Sección superior derecha -->
     <div class="h-16 border-b border-gray-300 flex items-center justify-center">
-      <p class="text-gray-700">Sección superior</p>
+      <p class="text-gray-700">Exportar Como:</p>
     </div>
     <!-- Contenido derecho -->
     <div class="flex-1 p-4 overflow-y-auto">
-      <div class="h-full border-2 border-dashed border-gray-400 rounded-lg flex items-center justify-center">
-        <p class="text-gray-500">Contenido derecho</p>
+      <div class="h-full border-dashed border-gray-400 rounded-lg flex flex-col justify-around lg:py-28">
+        <button mat-stroked-button>
+          Exportar para angular
+        </button>
+
+        <button mat-stroked-button>
+          Exportar PDF
+        </button>
+
+        <button mat-stroked-button>
+          Exportar como imagen
+        </button>
       </div>
     </div>
     <!-- Sección inferior derecha -->
     <div class="h-16 border-t border-gray-300 flex items-center justify-center">
-      <p class="text-gray-700">Sección inferior</p>
+      <p class="text-gray-700">Mis proyectos <a class="text-blue-700 text-center" href="https://github.com/thecrow17-erick">aqui</a></p>
     </div>
   </div>
 </main>

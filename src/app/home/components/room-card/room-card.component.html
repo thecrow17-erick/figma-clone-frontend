@@ -9,18 +9,23 @@
     <p class="text-sm text-gray-700 mb-4 line-clamp-2">{{ roomDetail.room.description }}</p>
 
     <div class="flex justify-between border-t pt-3">
-      <button color="gray" class="hover:text-gray-800" mat-icon-button matTooltip="Ver detalles">
+      <button color="gray" (click)="this.goRoomId()" class="hover:text-gray-800" mat-icon-button matTooltip="Ver detalles">
         <mat-icon >visibility</mat-icon>
       </button>
-      <button color="primary" class="hover:text-blue-800" mat-icon-button matTooltip="Agregar gente">
-        <mat-icon>person_add</mat-icon>
+      <button (click)="this.goCanvas()" mat-icon-button matTooltip="Ir a dibujar">
+        <mat-icon>brush</mat-icon>
       </button>
+      @if (roomDetail.role !== "MEMBER") {
+        <button  (click)="this.openDialogAddPerson()" color="primary" class="hover:text-blue-800" mat-icon-button matTooltip="Agregar gente">
+          <mat-icon>person_add</mat-icon>
+        </button>
+      }
       @if (roomDetail.role === "OWNER") {
         <button color="warn" class=" hover:text-red-800" mat-icon-button matTooltip="Eliminar">
           <mat-icon>delete</mat-icon>
         </button>
       }@else {
-        <button color="accent" class="text-orange-600 hover:text-orange-800" mat-icon-button matTooltip="Salir">
+        <button color="warn" class="text-orange-600 hover:text-orange-800" mat-icon-button matTooltip="Salir">
           <mat-icon>logout</mat-icon>
         </button>
       }

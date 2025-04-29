@@ -14,6 +14,7 @@ export interface ICreateObject {
   stroke: string,
   strokeWidth: number,
   selectable: boolean,
+  text?: string
 }
 
 export interface IPointer {

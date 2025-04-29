@@ -1,0 +1,53 @@
+<!-- room-page.component.html -->
+<div class="min-h-screen bg-white">
+  <!-- Header -->
+  <header class="bg-blue-500 text-white p-6 shadow-md">
+    <div class="container mx-auto flex items-center">
+      <button
+        mat-raised-button
+        color="primary"
+        class="mr-4 bg-white text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-md font-medium flex items-center transition-colors"
+        (click)="goBack()"
+      >
+        <mat-icon>arrow_back</mat-icon> Volver
+      </button>
+      <h1 class="text-3xl font-bold">Detalles de la Sala</h1>
+    </div>
+  </header>
+
+  <!-- Room Info Card -->
+  <main *ngIf="this.isLoading()" class="container mx-auto px-4 py-8">
+    <mat-card class="mb-10 border border-gray-200">
+      <div class="bg-blue-500 px-6 py-4">
+        <p class="text-2xl font-bold text-white">{{ room()!.name }}</p>
+      </div>
+      <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <p class="text-sm text-gray-600 mb-1">ID de Sala</p>
+            <p class="text-lg font-medium text-black mb-4">{{ room()!.id }}</p>
+
+            <p class="text-sm text-gray-600 mb-1">Código de Sala</p>
+            <p class="text-lg font-medium text-black mb-4">{{ room()!.code }}</p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600 mb-1">Fecha de Creación</p>
+            <p class="text-lg font-medium text-black mb-4">{{ formatDate(room()!.createdAt.toString()) }}</p>
+
+            <p class="text-sm text-gray-600 mb-1">Número de Usuarios</p>
+            <p class="text-lg font-medium text-black mb-4">{{ room()!.users.length }}</p>
+          </div>
+        </div>
+
+        <div class="mt-2">
+          <p class="text-sm text-gray-600 mb-1">Descripción</p>
+          <p class="text-base text-black">{{ room()!.description }}</p>
+        </div>
+      </div>
+    </mat-card>
+    <app-room-users-component
+      [users]="room()!.users"
+      (removedUserEvent)="this.removedUser($event)"
+    />
+  </main>
+</div>

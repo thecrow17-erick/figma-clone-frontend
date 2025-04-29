@@ -1,9 +1,10 @@
 import { inject, Injectable } from '@angular/core';
 import { environment } from '../../../environments';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { IApiResponse } from '../../shared/interfaces';
 import { IBodyCreateRoom, IResponseAllRooms, IResponseCreateRoom } from '../interfaces';
+import { IRoomIDGetResponse } from '../../room/interfaces';
 
 @Injectable({
   providedIn: 'root'
@@ -20,7 +21,7 @@ export class RoomService {
     return this.http.get<IApiResponse<IResponseAllRooms>>(this.roomUrl, {
       headers: header
     }).pipe(
-      tap( _ => console.log("Obteniendo salas"))
+      tap( _ => console.log("Obteniendo salas..."))
     )
   }
 
@@ -31,8 +32,20 @@ export class RoomService {
       headers
     })
       .pipe(
-        tap( _ => console.log("Creando sala"))
+        tap( _ => console.log("Creando sala..."))
       );
+  }
+
+  public getRoomId(id: number, token: string): Observable<IApiResponse<IRoomIDGetResponse>> {
+    const headers = new HttpHeaders()
+      .set("auth-token", token);
+
+    return this.http.get<IApiResponse<IRoomIDGetResponse>>(`${this.roomUrl}/${id}`,{
+      headers
+    }).pipe(
+      tap( _ => console.log("Obteniendo datos de la sala..."))
+    )
+
   }
 
 }

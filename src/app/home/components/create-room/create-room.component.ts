@@ -6,13 +6,15 @@ import { LocalstorageService } from '../../../shared/services';
 import { RoomService } from '../../services';
 import { IBodyCreateRoom } from '../../interfaces';
 import { Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-create-room',
   standalone: true,
   imports: [
     MaterialModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    CommonModule
   ],
   templateUrl: "./create-room.component.html"
 })
@@ -22,7 +24,7 @@ export class CreateRoomComponent implements OnInit{
   private localStorage = inject(LocalstorageService);
   private roomService = inject(RoomService);
   private router = inject(Router);
-
+  public file: File | null = null;
 
   ngOnInit(): void {
     this.setForm();
@@ -75,5 +77,11 @@ export class CreateRoomComponent implements OnInit{
       }
     );
     this.dialogRef.close();
+  }
+
+  handleFile(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    console.log("archivo: ",input.files![0]);
+    this.file = input.files![0];
   }
 }

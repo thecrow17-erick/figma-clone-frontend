@@ -4,6 +4,7 @@ import { authRoutes } from './auth/auth.routes';
 import { homeRoutes } from './home/home.routes';
 import { authGuard } from './auth/guard';
 import { FigmaEditorComponent } from './canvas/components/figma-editor/figma-editor.component';
+import { roomRoutes } from './room/room.routes';
 
 export const routes: Routes = [
   {
@@ -23,7 +24,17 @@ export const routes: Routes = [
     ]
   },
   {
-    path: "canva",
-    component: FigmaEditorComponent
+    path: "canva/:code",
+    component: FigmaEditorComponent,
+    canActivate: [
+      authGuard
+    ]
+  },
+  {
+    path: "room",
+    children: roomRoutes,
+    canActivate: [
+      authGuard
+    ]
   }
 ];

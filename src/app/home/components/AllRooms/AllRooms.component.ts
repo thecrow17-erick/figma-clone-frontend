@@ -6,6 +6,8 @@ import { RoomService } from '../../services';
 import { LocalstorageService } from '../../../shared/services';
 import { Router } from '@angular/router';
 import { IRooms } from '../../interfaces';
+import { CreateRoomComponent } from '../create-room/create-room.component';
+import { MatDialog } from '@angular/material/dialog';
 
 @Component({
   selector: 'app-all-rooms',
@@ -23,12 +25,18 @@ export class AllRoomsComponent implements OnInit{
   private localStorage = inject(LocalstorageService);
   private router = inject(Router);
   public rooms = signal<IRooms[]>([]);
+  private readonly dialog = inject(MatDialog);
 
   ngOnInit(): void {
     this.getRoomsUser();
   }
 
-
+  public openDialog(): void {
+    const dialogRef = this.dialog.open(CreateRoomComponent,{
+      width: "60%",
+      height: "auto"
+    });
+  }
   private getRoomsUser ():void {
     const token = this.localStorage.getItem<string>("token");
 
@@ -41,7 +49,6 @@ export class AllRoomsComponent implements OnInit{
     this.roomService.getRooms(token!).subscribe(
       {
         next: (res) => {
-          console.log(res);
           this.rooms.set(res.data.rooms);
         },
         error: (err) => {

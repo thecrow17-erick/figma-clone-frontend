@@ -1,0 +1,19 @@
+<main class="container mx-auto px-4 py-8">
+  <ng-container *ngIf="this.allInvitation().length === 0; else invitacionesList">
+    <div class="bg-white rounded-lg shadow-lg p-8 text-center">
+      <h2 class="text-2xl font-bold text-gray-700 mb-4">No tienes invitaciones pendientes</h2>
+      <p class="text-gray-600">Cuando recibas invitaciones para unirte a salas, aparecerán aquí.</p>
+    </div>
+  </ng-container>
+
+  <ng-template #invitacionesList>
+    <div class="grid grid-cols-1 gap-6">
+      <app-card-invitation-room
+        *ngFor="let invitation of this.allInvitation()"
+        [invitation]="invitation"
+        (accept)="this.acceptInvitation(invitation.room.id)"
+        (refused)="this.refusedInvitation(invitation.room.id)"
+      />
+    </div>
+  </ng-template>
+</main>
