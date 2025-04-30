@@ -133,7 +133,7 @@
 <main class="flex flex-1 overflow-hidden">
   <!-- Área principal izquierda -->
   <div class="flex-1 bg-white px-3 overflow-y-auto">
-    <div class="h-full border-2 rounded-md border-dashed border-gray-300 flex items-center justify-center">
+    <div #ImageExport class="h-full border-2 rounded-md border-dashed border-gray-300 flex items-center justify-center">
       <canvas #fabricCanvas class="block w-full h-full" id="canvas"></canvas>
     </div>
   </div>
@@ -147,7 +147,7 @@
     <!-- Contenido derecho -->
     <div class="flex-1 p-4 overflow-y-auto">
       <div class="h-full border-dashed border-gray-400 rounded-lg flex flex-col justify-around lg:py-28">
-        <button mat-stroked-button>
+        <button (click)="downloadZip()" [disabled]="this.isLoading()" mat-stroked-button>
           Exportar para angular
         </button>
 
@@ -155,7 +155,7 @@
           Exportar PDF
         </button>
 
-        <button mat-stroked-button>
+        <button (click)="onClickPhoto()" mat-stroked-button>
           Exportar como imagen
         </button>
       </div>
